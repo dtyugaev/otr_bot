@@ -134,3 +134,4 @@ tmp/
 .viminfo
 .cache
 .local
+*.ini
