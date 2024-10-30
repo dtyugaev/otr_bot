@@ -128,9 +128,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 /config.ini
-.storage/
-.logs/
-.tmp/
+storage/
+logs/
+tmp/
 .viminfo
 .cache
 .local
