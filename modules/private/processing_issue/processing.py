@@ -140,6 +140,7 @@ async def reopen(message: types.Message, state: FSMContext):
         loop = asyncio.get_running_loop()
 
         with concurrent.futures.ThreadPoolExecutor() as pool:
+            # переоткрыть было изменено на 'Переоткрыть_для_робота' в рамках решения проблемы с уведомлениями
             if type_mes in ('photo', 'document'):
                 com_res = await loop.run_in_executor(pool, resources.data.jira.switch_status, 'Переоткрыть', state_d['issue_id'], com, attach_path)
             else:
@@ -239,12 +240,14 @@ async def give_info(message: types.Message, state: FSMContext):
             else:
                 com = f"(Заявитель) [{user_data['fio']}]: " + message.text
 
+
         loop = asyncio.get_running_loop()
         with concurrent.futures.ThreadPoolExecutor() as pool:
+            # ответить изменено на 'Ответ для робота' в рамках решения проблемы с уведомлениями
             if type_mes in ('photo', 'document'):
-                res_ws = await loop.run_in_executor(pool, resources.data.jira.switch_status, 'Ответить', state_d['issue_id'], com, attach_path)
+                res_ws = await loop.run_in_executor(pool, resources.data.jira.switch_status, 'Ответ для робота', state_d['issue_id'], com, attach_path)
             else:
-                res_ws = await loop.run_in_executor(pool, resources.data.jira.switch_status, 'Ответить', state_d['issue_id'], com)
+                res_ws = await loop.run_in_executor(pool, resources.data.jira.switch_status, 'Ответ для робота', state_d['issue_id'], com)
 
         if res_ws == 0:
             await message.answer('Комментарий добавлен.', reply_markup=keyboards.generate_startup_menu())

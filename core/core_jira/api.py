@@ -40,6 +40,10 @@ class GetInstance:
                                              {'new_status': 'Ответ предоставлен',
                                               'from_status': ('Запрос информации',)
                                               },
+                                         'Ответ для робота':
+                                             {'new_status': 'Ответ предоставлен',
+                                              'from_status': ('Запрос информации',)
+                                              },
                                          'Предложено решение':
                                              {'new_status': 'Запрос информации',
                                               'from_status': ('В работе',)
@@ -353,6 +357,7 @@ class Api(GetInstance):
             logging.info(f"{id} issue status: {issue.fields.status.name}. Actual trans id: {list_all_aviable_trans}")
             raise Exception(f"Not found actual trans id for {id}")
 
+        #self.add_comments(id=id, comment=comment)
         result_trans = self.jira.transition_issue(id, transition=tr, comment=comment)
         issue = self.jira.issue(id)
         if issue.fields.status.name != self.complete_switch_statused[action]['new_status']:

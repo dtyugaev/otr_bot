@@ -62,3 +62,5 @@ def init(dp: Dispatcher):
     dp.register_message_handler(modules.private.feedback.feedback.start, filters.IsUserApprove(), Text(equals="Обратная связь", ignore_case=True), state="*", chat_type=types.ChatType.PRIVATE)
     dp.register_message_handler(modules.private.status_issue.start.generate_choise, filters.IsUserApprove(), Text(equals="Узнать статус заявки", ignore_case=True), state="*", chat_type=types.ChatType.PRIVATE)
     dp.register_message_handler(modules.private.create_issue.create.start, filters.IsUserApprove(), Text(equals="Создать заявку", ignore_case=True), state="*", chat_type=types.ChatType.PRIVATE)
+
+

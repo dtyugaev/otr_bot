@@ -11,6 +11,8 @@ import os
 
 from aiogram import executor
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
+from aiogram import types
+from aiogram.dispatcher.middlewares import BaseMiddleware
 
 import service
 from bot_core import handlers
@@ -27,7 +29,34 @@ with open(constant.STATUS_FILE, 'w') as file:
 
 bot = resources.data.bot
 dp = resources.data.dp
+
+
+class UserEventsMiddleware(BaseMiddleware):
+    async def on_pre_process_update(self, update: types.Update, data: dict):
+        if update.message:
+            user = update.message.from_user
+            logging.info(f"Message from user {user.id}: {update.message.text}")
+        elif update.callback_query:
+            user = update.callback_query.from_user
+            logging.info(f"Callback query from user {user.id}: {update.callback_query.data}")
+        elif update.inline_query:
+            user = update.inline_query.from_user
+            logging.info(f"Inline query from user {user.id}: {update.inline_query.query}")
+        elif update.chosen_inline_result:
+            user = update.chosen_inline_result.from_user
+            logging.info(f"Chosen inline result from user {user.id}: {update.chosen_inline_result.result_id}")
+        elif update.shipping_query:
+            user = update.shipping_query.from_user
+            logging.info(f"Shipping query from user {user.id}: {update.shipping_query.id}")
+        elif update.pre_checkout_query:
+            user = update.pre_checkout_query.from_user
+            logging.info(f"Pre-checkout query from user {user.id}: {update.pre_checkout_query.id}")
+        elif update.poll_answer:
+            user = update.poll_answer.user
+            logging.info(f"Poll answer from user {user.id}: {update.poll_answer.poll_id}")
+
 dp.middleware.setup(LoggingMiddleware())
+dp.middleware.setup(UserEventsMiddleware())
 
 handlers.init(dp)  # инициируем все наши хендлеры
 system.clear_temp_tables() # очищаем темповые таблицы в бд
@@ -42,7 +71,9 @@ async def on_startup(dp):
     """
     logging.info('Бот запущен')
     loop = asyncio.get_event_loop()
-    loop.create_task(service.monitoring_issue.monitoring.monitoring()) # Запускаем мониторинг заявок (await не нужен. Так как иначе бесконечно будет ожидать)
+
+    if os.getenv('otr_bot_debug') != 'true':
+        loop.create_task(service.monitoring_issue.monitoring.monitoring()) # Запускаем мониторинг заявок (await не нужен. Так как иначе бесконечно будет ожидать)
     await bot.send_message(resources.data.config['Telegram']['approval_group_id'], 'Бот запущен', disable_notification=True)
 
 
@@ -60,4 +91,4 @@ async def on_shutdown(dp):
 
 
 if __name__ == '__main__':
-    executor.start_polling(dp, skip_updates=True, on_startup=on_startup, on_shutdown=on_shutdown)
+    executor.start_polling(dp, skip_updates=True, on_startup=on_startup, on_shutdown=on_shutdown, allowed_updates=types.AllowedUpdates.all())
