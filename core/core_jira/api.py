@@ -357,8 +357,9 @@ class Api(GetInstance):
             logging.info(f"{id} issue status: {issue.fields.status.name}. Actual trans id: {list_all_aviable_trans}")
             raise Exception(f"Not found actual trans id for {id}")
 
-        #self.add_comments(id=id, comment=comment)
-        result_trans = self.jira.transition_issue(id, transition=tr, comment=comment)
+        # нужно отправлять коммент в начале, потому что коммент в транзакции 'ответить для робота' не принимает коммент.
+        self.add_comments(id=id, comment=comment)
+        result_trans = self.jira.transition_issue(id, transition=tr, comment=comment) # оставили коммент, чтобы был. По сути ни на что не влияет
         issue = self.jira.issue(id)
         if issue.fields.status.name != self.complete_switch_statused[action]['new_status']:
             logging.info(f"{id} current status: {issue.fields.status.name} result trans: {str(result_trans)}. Must be status: {self.complete_switch_statused[action]['action']}")

@@ -91,4 +91,6 @@ async def on_shutdown(dp):
 
 
 if __name__ == '__main__':
+    # Fix allowed_updates=types.AllowedUpdates.all() Теперь телеграмм заставляет указывать типы обновлений, которые мы хотим получать.
+    # Но в 3 версии все само добавляется
     executor.start_polling(dp, skip_updates=True, on_startup=on_startup, on_shutdown=on_shutdown, allowed_updates=types.AllowedUpdates.all())
