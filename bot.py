@@ -18,6 +18,11 @@ import service
 from bot_core import handlers
 from core import constant, resources, system
 
+import sentry_sdk
+from sentry_sdk.integrations.asyncio import AsyncioIntegration
+from sentry_sdk.integrations.logging import LoggingIntegration
+from sentry_sdk.integrations.stdlib import StdlibIntegration
+
 _st = {'ver': constant.VERSION,
        'time_start': datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")}
 
@@ -89,7 +94,24 @@ async def on_shutdown(dp):
     await dp.storage.wait_closed()
     logging.warning('Бот остановлен')
 
+logging_integration = LoggingIntegration(
+    level=logging.DEBUG
+)
 
+sentry_sdk.init(
+    dsn=os.getenv('SENTRY_DSN'),
+    traces_sample_rate=1.0,
+integrations=[
+            AsyncioIntegration(),
+            logging_integration,
+            StdlibIntegration(),
+
+        ],
+    attach_stacktrace=True,
+    include_local_variables=True,
+    send_default_pii=True,
+    max_request_body_size="always"
+)
 if __name__ == '__main__':
     # Fix allowed_updates=types.AllowedUpdates.all() Теперь телеграмм заставляет указывать типы обновлений, которые мы хотим получать.
     # Но в 3 версии все само добавляется

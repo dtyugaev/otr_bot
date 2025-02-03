@@ -7,6 +7,8 @@ import re
 import typing
 
 from jira import JIRA
+import sentry_sdk
+from sentry_sdk.tracing import Transaction
 
 from core import config, core_db, system
 
@@ -296,7 +298,7 @@ class Api(GetInstance):
             'Количество вложений': len(issue.fields.attachment)
         }
 
-    def add_comments(self, comment: str, id: str, attach=None) -> bool:
+    def add_comments(self, comment: str, id: str, attach=None, transaction_sentry: Transaction=None) -> bool:
         """
 
 
@@ -304,19 +306,31 @@ class Api(GetInstance):
         :param attach: путь до файла
         :return:
         """
-        status_add = self.jira.add_comment(id, comment, )
-        if not status_add:
-            raise Exception(f"Empty result add comment to issue: {id}")
+        if transaction_sentry is not None:
+            transaction = transaction_sentry
+        else:
+            transaction = sentry_sdk.start_transaction(op='http.client', name='add_comments')
 
-        if attach:
-            with open(attach, 'rb') as f:
-                self.jira.add_attachment(issue=id, attachment=f)
-            while True:
-                rem = system.remove_file(attach)
-                if rem is None:
-                    break
-                elif rem:
-                    break
+        with transaction.start_child(op='http.client', description='add_comment') as trans2:
+            status_add = self.jira.add_comment(id, comment, )
+            if not status_add:
+                raise Exception(f"Empty result add comment to issue: {id}")
+
+            if attach:
+                with open(attach, 'rb') as f:
+                    self.jira.add_attachment(issue=id, attachment=f)
+                while True:
+                    rem = system.remove_file(attach)
+                    if rem is None:
+                        break
+                    elif rem:
+                        break
+            trans2.set_status('ok')
+            trans2.finish()
+
+        if transaction_sentry is None:
+            transaction.set_status('ok')
+            transaction.finish()
         return True
 
     def get_issue_attachments_file(self, issue_key):
@@ -342,34 +356,58 @@ class Api(GetInstance):
             raise Exception(f"Invalid new status: {action}")
 
         issue = self.jira.issue(id)
-        list_all_aviable_trans = self.jira.transitions(id)  # получаем список доступных переходов для текущего статуса
 
-        if issue.fields.status.name not in self.complete_switch_statused[action]['from_status']:
-            logging.warning(f"{id} current status: {issue.fields.status.name}. Must be: {str(self.complete_switch_statused[action]['from_status'])}")
-            return 255
 
-        tr = ''
-        for i in list_all_aviable_trans:
-            if action == i['name']:
-                tr = i['id']
 
-        if not tr:
-            logging.info(f"{id} issue status: {issue.fields.status.name}. Actual trans id: {list_all_aviable_trans}")
-            raise Exception(f"Not found actual trans id for {id}")
+        with sentry_sdk.isolation_scope() as scope:
+            scope.set_context('issue_meta', {'id': id, 'status': issue.fields.status.name})
+            with scope.start_transaction(op='http.client', name='switch_status') as trans:
+                with trans.start_child(op='http.client', description='get transitions') as trans2:
+                    # получаем список доступных переходов для текущего статуса
+                    list_all_aviable_trans = self.jira.transitions(id)
+                    trans2.set_data('response', {'issue_id': id, 'transactions available': list_all_aviable_trans})
+                    trans2.set_status('ok')
+                    trans2.finish()
 
-        # нужно отправлять коммент в начале, потому что коммент в транзакции 'ответить для робота' не принимает коммент.
-        self.add_comments(id=id, comment=comment)
-        result_trans = self.jira.transition_issue(id, transition=tr, comment=comment) # оставили коммент, чтобы был. По сути ни на что не влияет
-        issue = self.jira.issue(id)
-        if issue.fields.status.name != self.complete_switch_statused[action]['new_status']:
-            logging.info(f"{id} current status: {issue.fields.status.name} result trans: {str(result_trans)}. Must be status: {self.complete_switch_statused[action]['action']}")
-            raise Exception(f"Error switch status for {id}")
 
-        if attach:
-            try:
-                assert self.add_comments(id=id, comment='Приложены файлы', attach=attach)
-            except Exception:
-                logging.exception(f"Не удалось добавить аттач в {id}")
-                return -1
+
+
+
+                if issue.fields.status.name not in self.complete_switch_statused[action]['from_status']:
+                    logging.warning(f"{id} current status: {issue.fields.status.name}. Must be: {str(self.complete_switch_statused[action]['from_status'])}")
+                    return 255
+
+                tr = ''
+                for i in list_all_aviable_trans:
+                    if action == i['name']:
+                        tr = i['id']
+
+                if not tr:
+                    logging.info(f"{id} issue status: {issue.fields.status.name}. Actual trans id: {list_all_aviable_trans}")
+                    raise Exception(f"Not found actual trans id for {id}")
+
+
+                # нужно отправлять коммент в начале, потому что коммент в транзакции 'ответить для робота' не принимает коммент.
+                self.add_comments(id=id, comment=comment, transaction_sentry=trans)
+                with trans.start_child(op='http.client', description='transition_issue') as trans2:
+                    result_trans = self.jira.transition_issue(id, transition=tr, comment=comment) # оставили коммент, чтобы был. По сути ни на что не влияет
+                    trans2.set_status('ok')
+
+                with trans.start_child(op='http', description='issue') as trans2:
+                    issue = self.jira.issue(id)
+                    trans2.set_status('ok')
+
+                if issue.fields.status.name != self.complete_switch_statused[action]['new_status']:
+                    logging.info(f"{id} current status: {issue.fields.status.name} result trans: {str(result_trans)}. Must be status: {self.complete_switch_statused[action]['action']}")
+                    raise Exception(f"Error switch status for {id}")
+
+                if attach:
+                    try:
+                        assert self.add_comments(id=id, comment='Приложены файлы', attach=attach, transaction_sentry=trans)
+                    except Exception:
+                        logging.exception(f"Не удалось добавить аттач в {id}")
+                        return -1
+
+                trans.set_status('ok')
 
         return 0
