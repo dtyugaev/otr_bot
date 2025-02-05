@@ -388,7 +388,6 @@ class Api(GetInstance):
 
 
                 # нужно отправлять коммент в начале, потому что коммент в транзакции 'ответить для робота' не принимает коммент.
-                self.add_comments(id=id, comment=comment, transaction_sentry=trans)
                 with trans.start_child(op='http.client', description='transition_issue') as trans2:
                     result_trans = self.jira.transition_issue(id, transition=tr, comment=comment) # оставили коммент, чтобы был. По сути ни на что не влияет
                     trans2.set_status('ok')
