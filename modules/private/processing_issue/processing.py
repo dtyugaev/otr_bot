@@ -186,7 +186,7 @@ async def wait_reopen(message: types.CallbackQuery, state: FSMContext):
             issue_actual_info = await loop.run_in_executor(pool, resources.data.jira.get_issue_from_id, message.data.split(':')[1])
         await mes.delete()
 
-        if issue_actual_info['Текущий статус'] != 'Предложено решение':
+        if issue_actual_info['Текущий статус'] != 'Подтверждение решения':
             await message.message.answer("Информация уже предоставлена.")
             await state.finish()
             return

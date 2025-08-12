@@ -34,13 +34,13 @@ def kb_processing_issue(data, isadmin=False):
     """
     kb = types.InlineKeyboardMarkup(row_width=1)
 
-    if data['Текущий статус'] not in ('Предложено решение', 'Закрыто', 'Запрос информации'):
+    if data['Текущий статус'] not in ('Подтверждение решения', 'Закрыто', 'Запрос информации'):
         if isadmin:
             kb.row(types.InlineKeyboardButton(text="Добавить комментарий", callback_data='wait_comment:%s' % data['Номер заявки']))
     if data['Текущий статус'] == 'Запрос информации':
         if isadmin:
             kb.row(types.InlineKeyboardButton(text="Предоставить информацию", callback_data='give_info:%s' % data['Номер заявки']))
-    if data['Текущий статус'] == 'Предложено решение':
+    if data['Текущий статус'] == 'Подтверждение решения':
         if isadmin:
             kb.row(types.InlineKeyboardButton(text="Переоткрыть заявку", callback_data='reopen_issue:%s' % data['Номер заявки']))
             kb.row(types.InlineKeyboardButton(text="Подтвердить решение", callback_data='accept_issue:%s' % data['Номер заявки']))
